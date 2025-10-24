@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Digital Accountability</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .user-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #e5e7eb; }
+        .user-card:hover { border-color: #3b82f6; }
+        button { background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #2563eb; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
+        .stat { background: #f9fafb; padding: 10px; border-radius: 4px; text-align: center; }
+        textarea { width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-family: inherit; }
+        input[type="number"] { width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 4px; }
+        .score-input { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+        .hidden { display: none; }
+        .login-form { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 8px; }
+        input[type="email"], input[type="password"] { width: 100%; padding: 10px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div id="loginSection" class="login-form">
+        <h2 style="margin-bottom: 20px;">Admin Login</h2>
+        <input type="email" id="email" placeholder="Admin Email">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="login()" style="width: 100%; margin-top: 10px;">Login</button>
+    </div>
+
+    <div id="adminSection" class="hidden">
+        <div class="container">
+            <div class="header">
+                <h1>Coach Admin Panel</h1>
+                <p style="color: #6b7280; margin-top: 5px;">Write weekly reviews for your users</p>
+                <button onclick="logout()" style="margin-top: 10px;">Logout</button>
+            </div>
+
+            <div id="usersList"></div>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="reviewModal" class="hidden" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+            <h2>Write Review</h2>
+            <div id="reviewUserInfo" style="background: #f9fafb; padding: 15px; border-radius: 6px; margin: 15px 0;"></div>
+
+            <div style="margin: 20px 0;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600;">Review Text (150-300 words)</label>
+                <textarea id="reviewText" rows="8" placeholder="Write personalized feedback..."></textarea>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <h3 style="margin-bottom: 10px;">Score Breakdown</h3>
+                <div class="score-input">
+                    <span>Goal Achievement</span>
+                    <input type="number" id="scoreGoal" min="0" max="40" value="30"> / 40
+                </div>
+                <div class="score-input">
+                    <span>Engagement</span>
+                    <input type="number" id="scoreEngagement" min="0" max="30" value="25"> / 30
+                </div>
+                <div class="score-input">
+                    <span>Behavior</span>
+                    <input type="number" id="scoreBehavior" min="0" max="20" value="15"> / 20
+                </div>
+                <div class="score-input">
+                    <span>Bonus</span>
+                    <input type="number" id="scoreBonus" min="0" max="10" value="5"> / 10
+                </div>
+                <div style="background: #3b82f6; color: white; padding: 15px; border-radius: 6px; margin-top: 15px; text-align: center;">
+                    <strong>Total Score: <span id="totalScore">75</span> / 100</strong>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="submitReview()" style="flex: 1;">Submit Review</button>
+                <button onclick="closeReviewModal()" style="flex: 1; background: #6b7280;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Firebase (replace with your config)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let selectedUser = null;
+
+        // Update total score when inputs change
+        ['scoreGoal', 'scoreEngagement', 'scoreBehavior', 'scoreBonus'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateTotalScore);
+        });
+
+        function updateTotalScore() {
+            const goal = parseInt(document.getElementById('scoreGoal').value) || 0;
+            const engagement = parseInt(document.getElementById('scoreEngagement').value) || 0;
+            const behavior = parseInt(document.getElementById('scoreBehavior').value) || 0;
+            const bonus = parseInt(document.getElementById('scoreBonus').value) || 0;
+            document.getElementById('totalScore').textContent = goal + engagement + behavior + bonus;
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('adminSection').classList.remove('hidden');
+                loadUsers();
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        }
+
+        async function logout() {
+            await auth.signOut();
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('adminSection').classList.add('hidden');
+        }
+
+        async function loadUsers() {
+            const usersSnapshot = await db.collection('users')
+                .where('subscription.status', '==', 'active')
+                .get();
+
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '';
+
+            for (const doc of usersSnapshot.docs) {
+                const user = doc.data();
+                const checkInsSnapshot = await db.collection('dailyCheckIns')
+                    .where('uid', '==', doc.id)
+                    .orderBy('timestamp', 'desc')
+                    .limit(7)
+                    .get();
+
+                const checkInsCount = checkInsSnapshot.size;
+
+                usersList.innerHTML += `
+                    <div class="user-card">
+                        <h3>${user.email}</h3>
+                        <div class="stats">
+                            <div class="stat">
+                                <strong>${user.streakCount || 0}</strong>
+                                <div style="color: #6b7280; font-size: 14px;">Day Streak</div>
+                            </div>
+                            <div class="stat">
+                                <strong>${checkInsCount}</strong>
+                                <div style="color: #6b7280; font-size: 14px;">Weekly Check-ins</div>
+                            </div>
+                            <div class="stat">
+                                <strong>${user.struggle}</strong>
+                                <div style="color: #6b7280; font-size: 14px;">Struggle</div>
+                            </div>
+                        </div>
+                        <button onclick='openReviewModal(${JSON.stringify(user)}, "${doc.id}")'>
+                            Write Review
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function openReviewModal(user, userId) {
+            selectedUser = { ...user, id: userId };
+            document.getElementById('reviewUserInfo').innerHTML = `
+                <strong>${user.email}</strong><br>
+                Struggle: ${user.struggle} | Faith: ${user.faithPath} | Streak: ${user.streakCount || 0} days
+            `;
+            document.getElementById('reviewModal').classList.remove('hidden');
+        }
+
+        function closeReviewModal() {
+            document.getElementById('reviewModal').classList.add('hidden');
+            selectedUser = null;
+        }
+
+        async function submitReview() {
+            const reviewText = document.getElementById('reviewText').value;
+            const scoreGoal = parseInt(document.getElementById('scoreGoal').value) || 0;
+            const scoreEngagement = parseInt(document.getElementById('scoreEngagement').value) || 0;
+            const scoreBehavior = parseInt(document.getElementById('scoreBehavior').value) || 0;
+            const scoreBonus = parseInt(document.getElementById('scoreBonus').value) || 0;
+
+            if (!reviewText || reviewText.split(' ').length < 50) {
+                alert('Please write a more detailed review (at least 150 words)');
+                return;
+            }
+
+            const totalScore = scoreGoal + scoreEngagement + scoreBehavior + scoreBonus;
+
+            const today = new Date();
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - 7);
+
+            try {
+                await db.collection('coachReviews').add({
+                    uid: selectedUser.id,
+                    weekStartDate: weekStart.toISOString().split('T')[0],
+                    weekEndDate: today.toISOString().split('T')[0],
+                    coachId: auth.currentUser.uid,
+                    reviewText: reviewText,
+                    score: totalScore,
+                    scoreBreakdown: {
+                        goalAchievement: scoreGoal,
+                        engagement: scoreEngagement,
+                        behavior: scoreBehavior,
+                        bonus: scoreBonus
+                    },
+                    createdAt: new Date(),
+                    readAt: null
+                });
+
+                alert('Review submitted successfully!');
+                closeReviewModal();
+                document.getElementById('reviewText').value = '';
+            } catch (error) {
+                alert('Error submitting review: ' + error.message);
+            }
+        }
+
+        // Check if user is already logged in
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('adminSection').classList.remove('hidden');
+                loadUsers();
+            }
+        });
+    </script>
+</body>
+</html>
