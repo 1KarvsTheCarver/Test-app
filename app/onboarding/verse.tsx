@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboardingStore } from '../../stores/onboarding';
-import { Button } from '../../components/Button';
 import { VerseSelector } from '../../components/VerseSelector';
 import { AnchorVerse } from '../../types';
 
@@ -20,19 +19,19 @@ export default function VerseScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-1">
-        <View className="px-6 pt-6 pb-4">
-          <Text className="text-2xl font-bold mb-2 text-gray-900">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.title}>
             📖 Choose Your Anchor Verse
           </Text>
 
-          <Text className="text-gray-600 mb-4">
+          <Text style={styles.subtitle}>
             This will appear when you need it most - in moments of temptation and daily reminders.
           </Text>
         </View>
 
-        <View className="flex-1 px-6">
+        <View style={styles.selectorContainer}>
           <VerseSelector
             faithPath={faithPath as any}
             onSelect={setSelected}
@@ -40,14 +39,64 @@ export default function VerseScreen() {
           />
         </View>
 
-        <View className="px-6 pb-6">
-          <Button
-            title="Continue →"
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, !selected && styles.buttonDisabled]}
             onPress={handleContinue}
             disabled={!selected}
-          />
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>Continue →</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  content: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#111827',
+  },
+  subtitle: {
+    color: '#6b7280',
+    marginBottom: 16,
+  },
+  selectorContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  buttonContainer: {
+    padding: 24,
+    paddingBottom: 24,
+  },
+  button: {
+    backgroundColor: '#2563eb',
+    borderRadius: 24,
+    paddingVertical: 16,
+  },
+  buttonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  buttonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+});

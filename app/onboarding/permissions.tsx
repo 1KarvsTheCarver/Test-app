@@ -1,141 +1,171 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
-import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
-import { Button } from '../../components/Button';
-import { requestScreenTimePermission } from '../../lib/screentime';
 
 export default function PermissionsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [permissions, setPermissions] = useState({
-    notifications: false,
-    screenTime: false,
-    tracking: false,
-  });
 
-  const requestAllPermissions = async () => {
-    setLoading(true);
-
-    try {
-      // Request notification permission
-      const notifResult = await Notifications.requestPermissionsAsync();
-      const notifGranted = notifResult.status === 'granted';
-
-      // Request tracking transparency (iOS)
-      let trackingGranted = false;
-      try {
-        const trackingResult = await requestTrackingPermissionsAsync();
-        trackingGranted = trackingResult.status === 'granted';
-      } catch (error) {
-        // Not available on Android
-        trackingGranted = true;
-      }
-
-      // Request screen time permission
-      const screenTimeGranted = await requestScreenTimePermission();
-
-      setPermissions({
-        notifications: notifGranted,
-        screenTime: screenTimeGranted,
-        tracking: trackingGranted,
-      });
-
-      // Continue even if some permissions are denied
+  const handleContinue = async () => {
+    if (Platform.OS === 'web') {
+      // On web, just navigate to next screen
       router.push('/onboarding/payment');
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        'There was a problem requesting permissions. You can continue and set them up later.'
-      );
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
 
-  const handleSkip = () => {
+    // Native permission handling will go here later
     router.push('/onboarding/payment');
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <ScrollView className="flex-1 px-6 pt-6">
-        <Text className="text-2xl font-bold mb-2 text-gray-900">
-          🔔 Enable Permissions
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.progressBar}>
+          <View style={styles.progressFill} />
+        </View>
+
+        <Text style={styles.title}>📱 App Permissions</Text>
+
+        <Text style={styles.subtitle}>
+          We need a few permissions to help you stay accountable
         </Text>
 
-        <Text className="text-gray-600 mb-6">
-          To provide the best accountability experience, we need a few permissions.
-        </Text>
-
-        <View className="bg-white border-2 border-gray-200 rounded-xl p-4 mb-3">
-          <View className="flex-row items-start">
-            <Text className="text-2xl mr-3">📱</Text>
-            <View className="flex-1">
-              <Text className="font-semibold text-lg text-gray-900 mb-1">
-                Screen Time Tracking
+        <View style={styles.permissionsList}>
+          <View style={styles.permissionItem}>
+            <Text style={styles.permissionIcon}>🔔</Text>
+            <View style={styles.permissionContent}>
+              <Text style={styles.permissionTitle}>Notifications</Text>
+              <Text style={styles.permissionDescription}>
+                Daily reminders and coach messages
               </Text>
-              <Text className="text-gray-600 text-sm">
-                Helps us understand your usage patterns to provide better support
+            </View>
+          </View>
+
+          <View style={styles.permissionItem}>
+            <Text style={styles.permissionIcon}>📊</Text>
+            <View style={styles.permissionContent}>
+              <Text style={styles.permissionTitle}>App Tracking</Text>
+              <Text style={styles.permissionDescription}>
+                Monitor your app usage to provide insights
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.permissionItem}>
+            <Text style={styles.permissionIcon}>🔒</Text>
+            <View style={styles.permissionContent}>
+              <Text style={styles.permissionTitle}>Privacy</Text>
+              <Text style={styles.permissionDescription}>
+                Your data is encrypted and never shared
               </Text>
             </View>
           </View>
         </View>
 
-        <View className="bg-white border-2 border-gray-200 rounded-xl p-4 mb-3">
-          <View className="flex-row items-start">
-            <Text className="text-2xl mr-3">🔔</Text>
-            <View className="flex-1">
-              <Text className="font-semibold text-lg text-gray-900 mb-1">
-                Notifications
-              </Text>
-              <Text className="text-gray-600 text-sm">
-                Daily reminders and encouragement when you need it
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View className="bg-white border-2 border-gray-200 rounded-xl p-4 mb-6">
-          <View className="flex-row items-start">
-            <Text className="text-2xl mr-3">🔒</Text>
-            <View className="flex-1">
-              <Text className="font-semibold text-lg text-gray-900 mb-1">
-                Privacy & Tracking
-              </Text>
-              <Text className="text-gray-600 text-sm">
-                We use this to improve your experience, not to sell your data
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-          <Text className="text-sm text-gray-700">
-            🔐 <Text className="font-semibold">Your privacy matters.</Text> All data is
-            encrypted and only accessible to you and your assigned coach. We never share
-            or sell your information.
+        {Platform.OS === 'web' && (
+          <Text style={styles.webNote}>
+            Permission setup is handled on mobile devices
           </Text>
-        </View>
+        )}
       </ScrollView>
 
-      <View className="px-6 pb-6">
-        <Button
-          title="Grant Permissions"
-          onPress={requestAllPermissions}
-          loading={loading}
-          className="mb-3"
-        />
-
-        <Button
-          title="Skip for Now"
-          onPress={handleSkip}
-          variant="outline"
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleContinue}
           disabled={loading}
-        />
+        >
+          <Text style={styles.buttonText}>
+            {loading ? 'Loading...' : 'Continue →'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  scrollContent: {
+    padding: 24,
+    paddingTop: 32,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 4,
+    marginBottom: 32,
+  },
+  progressFill: {
+    height: 8,
+    backgroundColor: '#2563eb',
+    borderRadius: 4,
+    width: '86%',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#111827',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginBottom: 32,
+  },
+  permissionsList: {
+    gap: 16,
+  },
+  permissionItem: {
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  permissionIcon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  permissionContent: {
+    flex: 1,
+  },
+  permissionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  permissionDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  webNote: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  buttonContainer: {
+    padding: 24,
+    paddingBottom: 32,
+  },
+  button: {
+    backgroundColor: '#2563eb',
+    borderRadius: 24,
+    paddingVertical: 16,
+  },
+  buttonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+});

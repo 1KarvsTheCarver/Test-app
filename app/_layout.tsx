@@ -1,11 +1,12 @@
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import '../global.css';
+import { AuthProvider } from '../contexts/AuthContext';
+
 
 export default function RootLayout() {
   return (
-    <>
+    <AuthProvider>
       <StatusBar style="auto" />
       <Stack
         screenOptions={{
@@ -14,9 +15,10 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" />
+        <Stack.Screen name="auth" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
       </Stack>
-    </>
+    </AuthProvider>
   );
 }
